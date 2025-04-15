@@ -33,6 +33,7 @@ async function run() {
 
         const db = client.db("TalkVerse-DB");
         const tutorsCollection = db.collection('tutors');
+        const bookedCollection = db.collection('booked');
 
         // add a tutor in db
         app.post('/add-tutorials', async (req, res) => {
@@ -48,7 +49,6 @@ async function run() {
             res.send(result);
         })
 
-
         // get a specific tutor
         app.get('/tutor/:id', async (req, res) => {
             const id = req.params.id;
@@ -56,9 +56,6 @@ async function run() {
             const tutor = await tutorsCollection.findOne(query);
             res.send(tutor);
         })
-
-
-
 
         // find specific tutorial based on email 
         app.get('/my-tutorials/:email', async (req, res) => {
@@ -89,6 +86,15 @@ async function run() {
         })
 
 
+
+        // Booked collection ---------------------------
+        // add a book
+        app.post('/add-book', async (req, res) => {
+            const bookData = req.body;
+            const result = await bookedCollection.insertOne(bookData);
+            console.log(result);
+            res.send(result);
+        })
 
 
         await client.connect();
