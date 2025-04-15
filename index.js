@@ -97,6 +97,14 @@ async function run() {
         })
 
 
+        app.get('/my-booked-tutors/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { userEmail: email };
+            const result = await bookedCollection.find(query).toArray();
+            res.send(result);
+        });
+
+
         await client.connect();
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
