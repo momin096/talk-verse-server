@@ -76,12 +76,18 @@ async function run() {
             const updatedDoc = {
                 $set: updatedData
             }
-
             const result = await tutorsCollection.updateOne(filter, updatedDoc);
             res.send(result)
         })
 
-       
+        // delete a tutor 
+        app.delete('/delete-tutorial/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await tutorsCollection.deleteOne(query);
+            res.send(result);
+        })
+
 
 
 
