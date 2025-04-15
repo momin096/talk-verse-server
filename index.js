@@ -60,6 +60,17 @@ async function run() {
 
 
 
+        // find specific tutorial based on email 
+        app.get('/my-tutorials/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
+            const result = await tutorsCollection.find(query).toArray();
+            res.send(result)
+        })
+
+      
+
+
         await client.connect();
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
