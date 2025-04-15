@@ -49,7 +49,14 @@ async function run() {
         })
 
 
-       
+        // get a specific tutor
+        app.get('/tutor/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const tutor = await tutorsCollection.findOne(query);
+            res.send(tutor);
+        })
+
 
 
 
