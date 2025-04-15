@@ -68,7 +68,21 @@ async function run() {
             res.send(result)
         })
 
-      
+        // update tutor details 
+        app.put('/update-tutorial/:id', async (req, res) => {
+            const id = req.params.id;
+            const updatedData = req.body;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: updatedData
+            }
+
+            const result = await tutorsCollection.updateOne(filter, updatedDoc);
+            res.send(result)
+        })
+
+       
+
 
 
         await client.connect();
