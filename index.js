@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken')
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
@@ -14,6 +16,7 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 
 
@@ -28,6 +31,24 @@ const client = new MongoClient(uri, {
 });
 
 
+const verifyToken = async (req, res, next) => {
+    const token = req?.cookies?.token;
+    if (!token) {
+        return res.status(401).send({ message: 'UnAuthorize Access' })
+    }
+
+    jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+        if (err) {
+            console.log(err);
+            return res.status(401).send({ message: 'UnAuthorize Access' })
+        }
+        req.user = decoded;
+    })
+
+    next();
+}
+
+
 async function run() {
     try {
 
@@ -35,24 +56,48 @@ async function run() {
         const tutorsCollection = db.collection('tutors');
         const bookedCollection = db.collection('booked');
 
+
+        // generate json-web-token
+        app.post('/jwt', async (req, res) => {
+            const email = req.body;
+
+            // create token 
+            const token = jwt.sign(email, process.env.SECRET_KEY, { expiresIn: '1h' });
+            console.log(token);
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: false,
+                sameSite: 'strict'
+            }).send({ success: true })
+        })
+
+        // logout 
+        app.post('/logout', async (req, res) => {
+            res.clearCookie('token', {
+                maxAge: 0,
+                secure: false,
+                sameSite: 'strict'
+            }).send({ success: true })
+        })
+
         // add a tutor in db
-        app.post('/add-tutorials', async (req, res) => {
+        app.post('/add-tutorials',verifyToken, async (req, res) => {
             const tutorData = req.body;
             const result = await tutorsCollection.insertOne(tutorData);
             console.log(result);
             res.send(result);
         })
 
-    
-
-        // get all tutors or filter by language (without regex)
+        // get all tutors or filter by language 
         app.get('/tutors', async (req, res) => {
+
+
             const language = req.query.language;
             const search = req.query.search;
 
             let query = {};
             if (language) {
-                query.language = language; // assuming data is stored in lowercase
+                query.language = language;
             }
             else if (search) {
                 query = {
@@ -66,12 +111,8 @@ async function run() {
             res.send(result);
         });
 
-
-
-
-
         // get a specific tutor
-        app.get('/tutor/:id', async (req, res) => {
+        app.get('/tutor/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const tutor = await tutorsCollection.findOne(query);
@@ -79,15 +120,21 @@ async function run() {
         })
 
         // find specific tutorial based on email 
-        app.get('/my-tutorials/:email', async (req, res) => {
+        app.get('/my-tutorials/:email', verifyToken, async (req, res) => {
+            const decodedEmail = req?.user?.email;
             const email = req.params.email;
+
+            if (decodedEmail !== email) {
+                return res.status(401).send({ message: 'UnAuthorize Access' })
+            }
+
             const query = { email: email };
             const result = await tutorsCollection.find(query).toArray();
             res.send(result)
         })
 
         // update tutor details 
-        app.put('/update-tutorial/:id', async (req, res) => {
+        app.put('/update-tutorial/:id',verifyToken, async (req, res) => {
             const id = req.params.id;
             const updatedData = req.body;
             const filter = { _id: new ObjectId(id) };
@@ -99,7 +146,7 @@ async function run() {
         })
 
         // delete a tutor 
-        app.delete('/delete-tutorial/:id', async (req, res) => {
+        app.delete('/delete-tutorial/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await tutorsCollection.deleteOne(query);
@@ -110,7 +157,7 @@ async function run() {
 
         // Booked collection ---------------------------
         // add a book
-        app.post('/add-book', async (req, res) => {
+        app.post('/add-book', verifyToken, async (req, res) => {
             const bookData = req.body;
             const result = await bookedCollection.insertOne(bookData);
             console.log(result);
@@ -118,7 +165,7 @@ async function run() {
         })
 
 
-        app.get('/my-booked-tutors/:email', async (req, res) => {
+        app.get('/my-booked-tutors/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const query = { userEmail: email };
             const result = await bookedCollection.find(query).toArray();
@@ -126,7 +173,7 @@ async function run() {
         });
 
         // Update review count for a tutor
-        app.patch('/update-review/:id', async (req, res) => {
+        app.patch('/update-review/:id', verifyToken, async (req, res) => {
             try {
                 const id = req.params.id;
                 const query = { _id: new ObjectId(id) };
