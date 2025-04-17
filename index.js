@@ -43,11 +43,32 @@ async function run() {
             res.send(result);
         })
 
-        // get all tutors
+    
+
+        // get all tutors or filter by language (without regex)
         app.get('/tutors', async (req, res) => {
-            const result = await tutorsCollection.find().toArray();
+            const language = req.query.language;
+            const search = req.query.search;
+
+            let query = {};
+            if (language) {
+                query.language = language; // assuming data is stored in lowercase
+            }
+            else if (search) {
+                query = {
+                    language: {
+                        $regex: search, $options: 'i',
+                    }
+                }
+            }
+
+            const result = await tutorsCollection.find(query).toArray();
             res.send(result);
-        })
+        });
+
+
+
+
 
         // get a specific tutor
         app.get('/tutor/:id', async (req, res) => {
@@ -104,6 +125,23 @@ async function run() {
             res.send(result);
         });
 
+        // Update review count for a tutor
+        app.patch('/update-review/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const query = { _id: new ObjectId(id) };
+                const update = {
+                    $inc: { review: 1 }
+                };
+                const result = await tutorsCollection.updateOne(query, update);
+                res.send(result);
+            } catch (err) {
+                console.error("Error in /update-review:", err);
+                res.status(500).send({ error: err.message });
+            }
+        });
+
+
 
         await client.connect();
         // Send a ping to confirm a successful connection
@@ -117,7 +155,7 @@ async function run() {
 run().catch(console.dir);
 
 app.get('/', (req, res) => {
-    res.send('Hello from SoloSphere Server....')
+    res.send('Hello from Talk-Verse Server....')
 })
 
 app.listen(port, () => console.log(`Server running on port ${port}`))
