@@ -12,7 +12,10 @@ const app = express();
 
 // middleware 
 app.use(cors({
-    origin: 'http://localhost:5173',
+    origin: [
+        'http://localhost:5173',
+        'https://talk-verse-117af.web.app'
+    ],
     credentials: true
 }));
 app.use(express.json());
@@ -62,29 +65,28 @@ async function run() {
             const email = req.body;
 
             // create token 
-            const token = jwt.sign(email, process.env.SECRET_KEY, { expiresIn: '1h' });
+            const token = jwt.sign(email, process.env.SECRET_KEY, { expiresIn: '1d' });
             console.log(token);
             res.cookie('token', token, {
                 httpOnly: true,
-                secure: false,
-                sameSite: 'strict'
+                secure: process.env.NODE_ENV === "production",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
             }).send({ success: true })
         })
 
         // logout 
         app.post('/logout', async (req, res) => {
             res.clearCookie('token', {
-                maxAge: 0,
-                secure: false,
-                sameSite: 'strict'
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
             }).send({ success: true })
         })
 
         // add a tutor in db
-        app.post('/add-tutorials',verifyToken, async (req, res) => {
+        app.post('/add-tutorials', async (req, res) => {
             const tutorData = req.body;
             const result = await tutorsCollection.insertOne(tutorData);
-            console.log(result);
             res.send(result);
         })
 
@@ -112,7 +114,7 @@ async function run() {
         });
 
         // get a specific tutor
-        app.get('/tutor/:id', verifyToken, async (req, res) => {
+        app.get('/tutor/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const tutor = await tutorsCollection.findOne(query);
@@ -134,7 +136,7 @@ async function run() {
         })
 
         // update tutor details 
-        app.put('/update-tutorial/:id',verifyToken, async (req, res) => {
+        app.put('/update-tutorial/:id', async (req, res) => {
             const id = req.params.id;
             const updatedData = req.body;
             const filter = { _id: new ObjectId(id) };
@@ -146,7 +148,7 @@ async function run() {
         })
 
         // delete a tutor 
-        app.delete('/delete-tutorial/:id', verifyToken, async (req, res) => {
+        app.delete('/delete-tutorial/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await tutorsCollection.deleteOne(query);
@@ -157,23 +159,28 @@ async function run() {
 
         // Booked collection ---------------------------
         // add a book
-        app.post('/add-book', verifyToken, async (req, res) => {
+        app.post('/add-book', async (req, res) => {
             const bookData = req.body;
             const result = await bookedCollection.insertOne(bookData);
-            console.log(result);
             res.send(result);
         })
 
 
         app.get('/my-booked-tutors/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
+            const decodedEmail = req?.user?.email;
+
+            if (decodedEmail !== email) {
+                return res.status(401).send({ message: 'UnAuthorize Access' })
+            }
+
             const query = { userEmail: email };
             const result = await bookedCollection.find(query).toArray();
             res.send(result);
         });
 
         // Update review count for a tutor
-        app.patch('/update-review/:id', verifyToken, async (req, res) => {
+        app.patch('/update-review/:id', async (req, res) => {
             try {
                 const id = req.params.id;
                 const query = { _id: new ObjectId(id) };
@@ -183,17 +190,16 @@ async function run() {
                 const result = await tutorsCollection.updateOne(query, update);
                 res.send(result);
             } catch (err) {
-                console.error("Error in /update-review:", err);
                 res.status(500).send({ error: err.message });
             }
         });
 
 
 
-        await client.connect();
+        // await client.connect();
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
